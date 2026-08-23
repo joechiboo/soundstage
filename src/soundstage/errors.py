@@ -47,3 +47,19 @@ class MetaError(SoundstageError):
 
 class UploadError(SoundstageError):
     """上傳 YouTube 失敗（含 OAuth 授權問題）。"""
+
+
+class ThumbnailError(UploadError):
+    """影片已上傳成功，但設定縮圖失敗。
+
+    保留 video_id，讓 CLI 能提示使用者影片已經在線上、不需要重傳。
+    """
+
+    def __init__(self, video_id: str, reason: str) -> None:
+        self.video_id = video_id
+        self.reason = reason
+        super().__init__(
+            f"影片已上傳成功（https://youtu.be/{video_id}），但縮圖設定失敗：\n"
+            f"{reason}\n"
+            "影片本身不受影響，可稍後在 YouTube 後台手動更換縮圖。"
+        )
