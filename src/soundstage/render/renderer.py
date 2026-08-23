@@ -8,8 +8,15 @@ import tempfile
 from pathlib import Path
 from typing import Callable
 
-from soundstage.errors import FFmpegError, FFmpegNotFoundError, InputFileError
-from soundstage.render.cover import make_fallback_cover
+from pydantic import ValidationError
+
+from soundstage.errors import (
+    FFmpegError,
+    FFmpegNotFoundError,
+    InputFileError,
+    RenderConfigError,
+)
+from soundstage.render.cover import make_fallback_cover, validate_cover_image
 from soundstage.render.ffmpeg import build_render_command
 from soundstage.render.spec import RenderSpec, VisualStyle
 
@@ -32,36 +39,51 @@ def render(
     """
     if not audio_path.is_file():
         raise InputFileError(f"找不到音檔：{audio_path}")
-    if cover_path is not None and not cover_path.is_file():
-        raise InputFileError(f"找不到封面圖：{cover_path}")
+    if cover_path is not None:
+        if not cover_path.is_file():
+            raise InputFileError(f"找不到封面圖：{cover_path}")
+        validate_cover_image(cover_path)
     if shutil.which("ffmpeg") is None:
         raise FFmpegNotFoundError()
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
     with tempfile.TemporaryDirectory(prefix="soundstage-") as tmpdir:
-        if cover_path is None:
-            cover_path = make_fallback_cover(
-                title=audio_path.stem,
-                output_path=Path(tmpdir) / "cover.png",
+        # 先決定封面路徑並建好 spec，讓參數錯誤在做任何實際工作之前就浮現
+        fallback_cover = Path(tmpdir) / "cover.png"
+        try:
+            spec = RenderSpec(
+                audio_path=audio_path,
+                cover_path=cover_path if cover_path is not None else fallback_cover,
+                output_path=output_path,
                 width=width,
                 height=height,
+                fps=fps,
+                visual=visual,
+            )
+        except ValidationError as exc:
+            problems = "\n".join(
+                f"  - {'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}"
+                for err in exc.errors()
+            )
+            raise RenderConfigError(f"render 參數不合法：\n{problems}") from exc
+
+        if cover_path is None:
+            make_fallback_cover(
+                title=audio_path.stem,
+                output_path=fallback_cover,
+                width=spec.width,
+                height=spec.height,
             )
 
-        spec = RenderSpec(
-            audio_path=audio_path,
-            cover_path=cover_path,
-            output_path=output_path,
-            width=width,
-            height=height,
-            fps=fps,
-            visual=visual,
-        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         command = build_render_command(spec)
         if on_command is not None:
             on_command(command)
 
-        result = subprocess.run(command, capture_output=True, text=True)
+        # stdin 導向 /dev/null：ffmpeg 會把 stdin 當互動指令來源，
+        # 在背景執行或被管線包住時可能因此停住不動。
+        result = subprocess.run(
+            command, capture_output=True, text=True, stdin=subprocess.DEVNULL
+        )
         if result.returncode != 0:
             raise FFmpegError(result.returncode, result.stderr, command)
 

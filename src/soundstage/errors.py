@@ -14,6 +14,10 @@ class InputFileError(SoundstageError):
     """輸入檔案不存在或無法讀取。"""
 
 
+class RenderConfigError(SoundstageError):
+    """render 參數不合法（解析度、fps 等）。"""
+
+
 class FFmpegNotFoundError(SoundstageError):
     """系統上找不到 ffmpeg 執行檔。"""
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class VisualStyle(str, Enum):
@@ -35,3 +35,12 @@ class RenderSpec(BaseModel):
     fps: int = Field(default=30, gt=0)
     audio_bitrate: str = "192k"
     visual: VisualStyle = VisualStyle.STATIC
+
+    @field_validator("width", "height")
+    @classmethod
+    def _must_be_even(cls, value: int) -> int:
+        # H.264 的 yuv420p 色度取樣要求長寬都是偶數，奇數會讓 ffmpeg
+        # 丟出跟尺寸無關的難懂錯誤，不如在這裡講清楚。
+        if value % 2 != 0:
+            raise ValueError(f"必須是偶數（H.264 限制），收到 {value}")
+        return value

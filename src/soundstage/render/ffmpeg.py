@@ -14,8 +14,10 @@ from soundstage.render.spec import RenderSpec, VisualStyle
 def _scale_pad_filter(spec: RenderSpec) -> str:
     """把封面圖等比縮放進目標解析度，不足處補黑邊，並保證偶數尺寸。"""
     w, h = spec.width, spec.height
+    # force_divisible_by=2 確保縮放後的中間尺寸也是偶數，否則四捨五入
+    # 可能算出比 pad 目標還大的尺寸，pad 會直接報錯。
     return (
-        f"scale={w}:{h}:force_original_aspect_ratio=decrease,"
+        f"scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2,"
         f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black"
     )
 
