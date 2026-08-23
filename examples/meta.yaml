@@ -1,0 +1,12 @@
+# soundstage metadata 設定檔範例
+# 用法：soundstage upload out.mp4 --meta meta.yaml
+title: 月光奏鳴曲 第一樂章
+description: |
+  鋼琴練習錄音。
+  錄音日期：2026-08-23
+tags:
+  - piano
+  - beethoven
+  - 古典樂
+privacy: unlisted # private / unlisted / public，預設 private
+# thumbnail: cover.jpg  # 相對路徑以本設定檔所在目錄為準

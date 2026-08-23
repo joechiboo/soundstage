@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+.pytest_cache/
+
+# 產出物
+*.mp4
+
+# YouTube OAuth 憑證（絕不能進版控）
+client_secret*.json
+token.json
