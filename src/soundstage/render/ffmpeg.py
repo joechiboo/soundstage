@@ -33,6 +33,11 @@ def _build_static_command(spec: RenderSpec) -> list[str]:
         "-framerate", str(spec.fps),
         "-i", str(spec.cover_path),
         "-i", str(spec.audio_path),
+        # 明確指定串流來源，不能依賴 ffmpeg 的預設挑選：預設會挑「解析度最高」
+        # 的影像串流，所以當音訊來源本身帶有影像時（影片檔、內嵌專輯封面的 mp3），
+        # 只要它比封面圖大，封面就會被無聲無息地換掉。
+        "-map", "0:v:0",  # 影像固定取自封面圖
+        "-map", "1:a:0",  # 音訊固定取自音檔，順帶忽略它可能夾帶的影像
         "-vf", _scale_pad_filter(spec),
         "-c:v", "libx264",
         "-tune", "stillimage",

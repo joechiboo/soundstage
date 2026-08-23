@@ -38,11 +38,18 @@ uv run soundstage render input.wav --cover cover.jpg -o out.mp4
 # 沒有封面圖也可以：自動用純色背景 + 檔名文字
 uv run soundstage render input.wav
 
+# 輸入也可以是影片檔（例如手機錄的演奏影片），只取其中的音訊軌
+uv run soundstage render recording.mp4 --cover cover.jpg -o out.mp4
+
 # 除錯時看實際執行的 ffmpeg 指令
 uv run soundstage render input.wav -v
 ```
 
 其他選項：`--width` / `--height`（預設 1920×1080）、`--fps`（預設 30）。
+解析度必須是偶數，這是 H.264 的限制。
+
+輸入可以是任何 ffmpeg 讀得懂的音訊或影片檔。影像一律取自封面圖，
+輸入檔自己夾帶的畫面（影片的視訊軌、mp3 的內嵌專輯封面）都會被忽略。
 
 ## metadata 設定檔
 

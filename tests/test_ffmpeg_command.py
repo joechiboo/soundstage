@@ -50,3 +50,20 @@ def test_fps_configurable():
 
 def test_default_visual_is_static():
     assert make_spec().visual is VisualStyle.STATIC
+
+
+def test_streams_explicitly_mapped():
+    """必須明確指定串流，否則 ffmpeg 會自己挑解析度最高的影像串流。
+
+    音訊來源夾帶影像的情況很常見（手機錄的影片、內嵌專輯封面的 mp3），
+    只要它比封面圖大，使用者指定的 --cover 就會被默默忽略。
+    """
+    command = build_render_command(make_spec())
+
+    assert "-map" in command
+    maps = [command[i + 1] for i, arg in enumerate(command) if arg == "-map"]
+    assert maps == ["0:v:0", "1:a:0"]
+
+    # -map 必須排在輸入之後、輸出檔之前才有效
+    assert command.index("-map") > command.index("-i")
+    assert command.index("-map") < len(command) - 1
