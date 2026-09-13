@@ -18,6 +18,7 @@ from soundstage.errors import (
 )
 from soundstage.render.cover import make_fallback_cover, validate_cover_image
 from soundstage.render.ffmpeg import build_render_command
+from soundstage.render.probe import probe_audio_duration
 from soundstage.render.spec import RenderSpec, VisualStyle
 
 
@@ -43,8 +44,6 @@ def render(
         if not cover_path.is_file():
             raise InputFileError(f"找不到封面圖：{cover_path}")
         validate_cover_image(cover_path)
-    if shutil.which("ffmpeg") is None:
-        raise FFmpegNotFoundError()
 
     with tempfile.TemporaryDirectory(prefix="soundstage-") as tmpdir:
         # 先決定封面路徑並建好 spec，讓參數錯誤在做任何實際工作之前就浮現
@@ -65,6 +64,15 @@ def render(
                 for err in exc.errors()
             )
             raise RenderConfigError(f"render 參數不合法：\n{problems}") from exc
+
+        # 參數驗證過了才檢查外部相依。反過來的話，解析度打錯的人會先被叫去
+        # 裝 ffmpeg，裝完才發現真正的問題是尺寸不是偶數。
+        if shutil.which("ffmpeg") is None:
+            raise FFmpegNotFoundError()
+
+        # 探測音訊長度供 -t 使用，理由見 ffmpeg.py。探測不到就維持 None，
+        # 指令會退回只用 -shortest。
+        spec = spec.model_copy(update={"duration": probe_audio_duration(audio_path)})
 
         if cover_path is None:
             make_fallback_cover(

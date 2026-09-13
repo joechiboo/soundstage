@@ -1,6 +1,6 @@
 # TODO
 
-接手前先看這份。最後更新：2026-08-25。
+接手前先看這份。最後更新：2026-09-14。
 
 ---
 
@@ -12,7 +12,7 @@
 | ffmpeg / ffprobe | N-126262 (BtbN GPL build) | `C:\ffmpeg\bin` |
 | Python | 3.14.3 | `C:\Python314` |
 
-兩個路徑都已寫進 User PATH，**新開的 shell** 才生效。舊 shell 裡跑測試會踩到下面的 B 項。
+兩個路徑都已寫進 User PATH。`uv sync --extra upload` 已經裝好（上傳相依是選用的）。
 
 ⚠️ README 寫的 `winget install ffmpeg` 在這台機器行不通（沒有 winget）。
 gyan.dev 的 `ffmpeg-release-essentials.zip` 下載會卡死（實測 10 分鐘 0 bytes），
@@ -22,112 +22,94 @@ gyan.dev 的 `ffmpeg-release-essentials.zip` 下載會卡死（實測 10 分鐘 
 https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip
 ```
 
----
-
-## A. render 的 `-shortest` 溢出 2.28 秒 🔴
-
-**症狀**：輸出影片比音訊長 2.28 秒（68 格），尾巴多出一段無聲的封面畫面，
-而終端機照樣顯示「已輸出影片」——又是一個靜默的錯誤輸出，
-性質跟先前修掉的 `-map` bug 同型。
-
-用真實檔案實測（2:28 的手機錄影）：
-
-| 串流 | 長度 |
-|---|---|
-| 輸入音訊 | 147.752s |
-| 輸出音訊 | 147.752s ✅ |
-| 輸出影像 | **150.033s**（4501 格）❌ |
-
-**三個解法實測結果**：
-
-| 做法 | 結果 |
-|---|---|
-| `-fflags +shortest` | 這版 ffmpeg 已移除此 flag，直接報錯寫不出檔案 |
-| `-shortest_buf_duration 0.05` | 無效，150.100s（還略差） |
-| `-t <音訊實際長度>` | **有效**，147.767s vs 147.752s，差 14 ms（不到 30fps 的半格） |
-
-**要改的地方**：`-t` 需要先知道音訊長度，而 `render/ffmpeg.py` 目前刻意維持
-「只組 argv、不跑 subprocess」的純函式設計（見該檔 docstring）。所以動作是：
-
-1. 新增 probe：`ffprobe -v error -show_entries stream=duration -select_streams a:0`
-2. `RenderSpec` 加一個 duration 欄位
-3. `_build_static_command()` 用 `-t {duration}` 取代 `-shortest`
-4. 補測試：純函式那層驗 argv 有 `-t`，整合測試那層驗輸出長度
-
-專案目前完全沒用過 ffprobe，這會是第一處。
+⚠️ 用 `python - <<'EOF'` 這種 heredoc 改檔時，字串裡的 `\n` 會被吃掉一層反斜線，
+Python 收到的是真正的換行。做字串比對時錨點請避開含跳脫字元的行。
 
 ---
 
-## B. `test_odd_dimensions_rejected` 會因環境而失敗 🟡
+## C. upload 的真實路徑仍未驗證過 🔴
 
-**症狀**：機器上沒有 ffmpeg 時，`tests/test_render.py` 的
-`test_odd_dimensions_rejected[1921-1080]` 和 `[1920-1081]` 兩個測試會失敗。
-有 ffmpeg 時才過。也就是說這個測試在驗的東西跟它以為在驗的不一樣。
+**目前唯一擋住「render + 上傳」全流程的東西。**
 
-**根因**：`render/renderer.py` 的檢查順序。
-
-```python
-if shutil.which("ffmpeg") is None:      # L46-47：先擋 ffmpeg
-    raise FFmpegNotFoundError()
-
-with tempfile.TemporaryDirectory(...):
-    # 先決定封面路徑並建好 spec，讓參數錯誤在做任何實際工作之前就浮現
-    spec = RenderSpec(...)              # L53：尺寸驗證在這裡才發生
-```
-
-L50 的註解講的正是「參數錯誤要最先浮現」，但實際順序違反了它。
-連帶的使用者體驗問題：沒裝 ffmpeg 的人打錯解析度，會被告知「找不到 ffmpeg」，
-修好 ffmpeg 之後才發現真正的錯是尺寸是奇數。
-
-**建議修法**：把 L46-47 的 ffmpeg 檢查移到 `RenderSpec` 建好之後、
-`make_fallback_cover()` 之前。參數驗證不該需要裝 ffmpeg 才能跑。
-改完那兩個測試在有無 ffmpeg 的機器上都會過。
-
-（對照：`tests/test_render.py:76` 的整合測試有正確用 skip 標記擋掉，
-這兩個沒有——因為它們原本就不該需要 ffmpeg。）
-
----
-
-## C. upload 的真實路徑從未驗證過 🔴
-
-目前 `~/.config/soundstage/` **不存在**，代表 OAuth 從來沒實際跑過一次。
-
+`~/.config/soundstage/` 還是不存在，OAuth 從來沒實際跑過一次。
 測試裡的 OAuth 與 YouTube API 全是假 client（這是對的，測試不該碰網路），
 但也代表以下路徑一次都沒被真實執行過：
 
-- `soundstage auth` 開瀏覽器、拿 token、寫進 `token.json`（權限 0600）
+- `soundstage auth` 開瀏覽器、拿 token、寫進 `token.json`
 - token 過期後用 refresh token 自動更新
 - 授權被撤銷時自動重跑授權流程
 - resumable upload 遇到 5xx / 斷線的退避重試
 - 上傳後套用 `meta.thumbnail` 縮圖
 - 配額用盡的 403 `quotaExceeded` 處理
 
-**第一次實跑前要先做的事**（README「上傳到 YouTube」段有完整步驟）：
+**第一次實跑前要做的事**（只有帳號擁有者能做，都在瀏覽器裡）：
 
 1. Google Cloud Console 建專案、啟用 YouTube Data API v3
 2. 建 OAuth 用戶端 ID（桌面應用程式），下載 JSON
 3. 存成 `~/.config/soundstage/client_secret.json`
-4. `uv sync --extra upload`（上傳相依是選用的，預設沒裝）
-5. `uv run soundstage auth`
+4. `uv run soundstage auth`
 
 ⚠️ 第一次實測請用 `privacy: private`，別直接 public。
 ⚠️ 每日配額 10,000 點，一支影片約 1,600 點 → 一天約 6 支，測試時省著用。
 
 ---
 
-## D. 首支實際作品：《菊次郎の夏》
+## D. Windows 上 token 檔的權限保護是空的 🟡
 
-《夜曲 No.9-2》已經在作品集裡了，所以改用最近在練的《菊次郎の夏》當第一支。
-**等錄音練完才推進**。
+`upload/auth.py` 的 `save_credentials()` 寫著「權限設為 0600（只有自己讀得到）」，
+README 也這樣宣稱，但 **Windows 不實作 POSIX 權限位元**，`path.chmod(0o600)`
+是無效操作。實測 `token.json` 落地是 `0o666`。
 
-現況：
-- render 這條線已用真實檔案驗證過（見下方「已驗證」），可以直接用
-- 還缺**真正的封面圖**——目前只用程式生的純色測試圖驗證過
-- 建議順序：練完 → 錄音 → 做封面 → render → 先 private 上傳試一次 → 改 unlisted/public
+實務風險不高——`%USERPROFILE%` 自己的 ACL 已經擋住其他一般使用者——但那是
+繼承來的，不是這段程式做的事，而程式與文件都宣稱做了。
+
+相關的次要問題：`write_text()` 先寫檔、`chmod()` 後設權限，POSIX 上中間有一個
+短暫的視窗檔案是預設權限。要修的話一起處理：用 `os.open(..., 0o600)` 建檔。
+
+`tests/test_upload_auth.py::test_save_credentials_is_private` 目前在 Windows 上
+標了 `xfail(strict=True)`，POSIX 照常驗。真的修好之後記得把那個標記拿掉
+（strict 會讓它意外通過時報錯，不會被忘記）。
+
+修法方向：Windows 走 `icacls`（移除繼承、只給目前使用者），或改用 `%APPDATA%`
+搭配明確的 ACL。
 
 ---
 
-## E. Roadmap（README 既有項目）
+## E. 首支實際作品：《菊次郎の夏》
+
+《夜曲 No.9-2》已經在作品集裡了，所以改用《菊次郎の夏》當第一支。
+
+**目前卡在錄音品質，還不能發。** 2026-09-14 收到的 `voice_295093.aac`：
+
+| | 這個檔 | 之前那支手機錄影 |
+|---|---|---|
+| 取樣率 | **16 kHz** | 48 kHz |
+| 聲道 | **單聲道** | 立體聲 |
+| 位元率 | **16.4 kbps** | 256 kbps |
+| 長度 | 62.2 秒 | 147.8 秒 |
+
+頻譜實測：**5 kHz 以上完全是空的**（編碼器砍的，比 16 kHz 取樣的 8 kHz
+理論上限還低）。各頻段 RMS：
+
+```
+  20–500 Hz   -17.6 dB
+ 500–2000 Hz  -22.7 dB
+2000–4000 Hz  -35.5 dB
+4000–6000 Hz  -47.3 dB   ← 開始掉崖
+6000–7800 Hz  -61.9 dB   ← 幾乎是空的
+```
+
+鋼琴最高音 C8 基頻 4186 Hz，所以音高還在；但決定亮度與琴槌觸鍵質感的泛音
+幾乎全在 5 kHz 以上，全沒了。這是語音備忘錄規格，不是音樂錄音。
+
+**建議用相機 App 重錄**（同一支手機上次就錄出 48 kHz 立體聲 256 kbps）。
+
+還缺**真正的封面圖**——目前跑 render 會用預設封面，產出的是深藍底加白字
+`voice_295093`，不能當作品集封面。
+
+---
+
+## F. Roadmap（README 既有項目）
 
 - [ ] render：波形視覺化（ffmpeg `showwaves`）
 - [ ] render：頻譜視覺化（ffmpeg `showspectrum`）
@@ -141,17 +123,47 @@ L50 的註解講的正是「參數錯誤要最先浮現」，但實際順序違�
 
 ---
 
-## 已驗證，不用重做
+## 已完成
 
-2026-08-25 用真實檔案（304 MB、2:28、h264 1920×1080 rotation=-90、
-AAC 48kHz 立體聲 256kbps 的手機錄影）跑過：
+### A. `-shortest` 溢出 ✅ 2026-09-14
 
-- **`-map` 修正成立**。刻意配一張比影片小的 720p 封面（就是舊版會靜默出錯的組合），
-  輸出在 5s / 74s / 145s 三個時間點抽格，畫面全部是純封面色 `(68,127,178)`；
-  同一秒的原始影片有 39,834 種顏色。對照組成立。
-- **音訊完整**。輸出與來源的左右聲道 RMS 相差 0.01 dB 以內，不是靜音。
-- **效能**：2:28 的素材 render 耗時 17.4 秒，輸出 3.8 MB。
-- **影片檔可直接當輸入**，會取音訊軌、忽略影像軌，如 README 所述。
+輸出影像軌會比音訊長約 2 秒（兩支素材分別是 2.06s 與 2.28s），尾巴多一段
+無聲畫面而 ffmpeg 照樣回報成功——與先前的 `-map` bug 同型的靜默錯誤輸出。
 
-（附帶觀察：那份原始錄音的峰值是 +0.09 dBFS，已經削頂。
-不影響工具本身，但要發布的話錄音端值得注意。）
+修法：新增 `render/probe.py` 用 ffprobe 探測音訊長度，`RenderSpec` 帶
+`duration` 欄位，指令改用 `-t`。`-fflags +shortest` 在新版 ffmpeg 已移除，
+`-shortest_buf_duration` 實測無效。
+
+⚠️ 關鍵細節：`-t` 必須比音訊長度**多一點**（`_DURATION_EPSILON = 0.25`）。
+切在正好的長度上，音訊編碼器會少輸出最後一格——實測 16 kHz 的 AAC 少 64 ms，
+等於把 2 秒的靜默溢出換成 64 毫秒的靜默截斷。多出來的部分由 `-shortest` 收掉。
+
+實測結果（兩支真實素材，音訊完整、影像不到一格的誤差）：
+
+| 素材 | 輸出音訊 | 輸出影像 |
+|---|---|---|
+| voice_295093.aac (62.208s) | +0.000s | −0.008s |
+| 手機錄影 (147.752s) | +0.000s | −0.019s |
+
+另外：探測一律用**音訊軌自己的** duration，不能用容器的 format duration。
+影片檔的容器長度是以較長的串流為準，實測差 31 ms。
+
+### B. 測試會因環境有沒有 ffmpeg 而失敗 ✅ 2026-09-14
+
+`renderer.py` 的 ffmpeg 存在檢查排在 `RenderSpec` 尺寸驗證之前，導致沒裝
+ffmpeg 的機器上 `test_odd_dimensions_rejected` 必定失敗，且使用者打錯解析度
+會先被叫去裝 ffmpeg。已把檢查移到 spec 建好之後，並加了 monkeypatch
+`shutil.which` 的測試把順序釘死。
+
+驗證：把 `C:\ffmpeg\bin` 移出 PATH 跑整套 → 47 passed / 0 failed
+（修正前同樣條件是 2 failed）。
+
+### `-map` 修正的真實檔案驗證 ✅ 2026-08-25
+
+用 304 MB、2:28、h264 1920×1080 rotation=-90、AAC 48kHz 立體聲 256kbps 的
+手機錄影跑過：
+
+- 刻意配一張比影片小的 720p 封面（舊版會靜默出錯的組合），輸出在 5s / 74s /
+  145s 三個時間點抽格，畫面全部是純封面色；同一秒的原始影片有 39,834 種顏色。
+- 音訊完整，輸出與來源左右聲道 RMS 相差 0.01 dB 以內。
+- 2:28 的素材 render 耗時 17.4 秒，輸出 3.8 MB。

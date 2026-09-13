@@ -94,6 +94,10 @@ uv run soundstage auth --no-browser # 遠端主機：改在終端機顯示授權
 
 token 過期會自動用 refresh token 更新；若授權被撤銷，會自動重跑一次授權流程。
 
+⚠️ **Windows 上 0600 不生效**：Windows 不實作 POSIX 權限位元，`chmod` 只認唯讀
+旗標，token 檔實際落地是 0666。實務上靠 `%USERPROFILE%` 自己的 ACL 擋住其他
+一般使用者，但這是繼承來的保護，不是本工具做的。細節見 TODO.md 的 D 項。
+
 ### 上傳
 
 ```bash
@@ -139,6 +143,7 @@ src/soundstage/
 ├── render/       # 音檔 + 封面 → mp4（ffmpeg subprocess）
 │   ├── spec.py       # RenderSpec / VisualStyle 型別
 │   ├── ffmpeg.py     # 純函式組裝 ffmpeg 指令，可單獨測試
+│   ├── probe.py      # 用 ffprobe 探測輸入（音訊長度）
 │   ├── cover.py      # 預設封面（純色背景 + 檔名）
 │   └── renderer.py   # render 流程
 ├── meta/         # VideoMeta 型別 + yaml/json 載入

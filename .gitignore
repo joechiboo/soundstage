@@ -10,6 +10,13 @@ build/
 # 產出物
 *.mp4
 
+# 素材（錄音檔不進版控）
+*.aac
+*.m4a
+*.wav
+*.flac
+*.mp3
+
 # YouTube OAuth 憑證（絕不能進版控）
 client_secret*.json
 token.json

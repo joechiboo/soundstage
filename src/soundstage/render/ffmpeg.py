@@ -11,6 +11,14 @@ from typing import Callable
 from soundstage.render.spec import RenderSpec, VisualStyle
 
 
+# -t 要比音訊長度多一點點，不能剛好等於：音訊編碼器只能輸出完整的 frame，
+# 切在正好的長度上會少掉最後一格（實測 16kHz 的 AAC 少 64ms，就是 1024
+# samples 的長度）。0.25 秒足以覆蓋常見編碼的單格長度（AAC 1024 samples
+# 在 8kHz 是 128ms，MP3 1152 samples 在 8kHz 是 144ms），而多出來的部分
+# 由 -shortest 收掉——實測輸出的影像軌反而比音訊短 8～19ms，不到一格。
+_DURATION_EPSILON = 0.25
+
+
 def _scale_pad_filter(spec: RenderSpec) -> str:
     """把封面圖等比縮放進目標解析度，不足處補黑邊，並保證偶數尺寸。"""
     w, h = spec.width, spec.height
@@ -24,7 +32,7 @@ def _scale_pad_filter(spec: RenderSpec) -> str:
 
 def _build_static_command(spec: RenderSpec) -> list[str]:
     """靜態封面：單張圖 loop 成影像軌，配上音軌。"""
-    return [
+    command = [
         "ffmpeg",
         "-y",
         "-hide_banner",
@@ -44,10 +52,22 @@ def _build_static_command(spec: RenderSpec) -> list[str]:
         "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         "-b:a", spec.audio_bitrate,
+    ]
+    # -loop 1 的封面是無限長的影像串流，單靠 -shortest 收不乾淨：實測影像軌
+    # 會比音訊多出 2 秒左右（兩支素材分別是 2.06s 與 2.28s），尾巴多一段無聲
+    # 畫面，而 ffmpeg 不會有任何警告。用探測到的音訊長度硬切才準（誤差 14ms，
+    # 不到 30fps 的半格）。-shortest_buf_duration 試過無效，-fflags +shortest
+    # 在新版 ffmpeg 已移除。
+    if spec.duration is not None:
+        command += ["-t", f"{spec.duration + _DURATION_EPSILON:.6f}"]
+    # -shortest 保留：探測不到長度時它是唯一的收尾機制，探測得到時也能擋住
+    # 音訊比宣稱長度更早結束的情況。
+    command += [
         "-shortest",
         "-movflags", "+faststart",
         str(spec.output_path),
     ]
+    return command
 
 
 # 視覺化樣式 → 指令組裝函式。之後的 waveform / spectrum 在這裡註冊即可。

@@ -67,3 +67,29 @@ def test_streams_explicitly_mapped():
     # -map 必須排在輸入之後、輸出檔之前才有效
     assert command.index("-map") > command.index("-i")
     assert command.index("-map") < len(command) - 1
+
+
+def test_duration_becomes_explicit_t_flag():
+    """探測到音訊長度時要用 -t 硬切，不能只靠 -shortest。
+
+    -loop 1 的封面是無限長的影像串流，單靠 -shortest 收不乾淨：實測影像軌
+    會比音訊多出 2 秒左右，尾巴多一段無聲畫面而 ffmpeg 不會有任何警告。
+    """
+    command = build_render_command(make_spec(duration=62.208))
+
+    # 刻意比音訊長 _DURATION_EPSILON：切在正好的長度上，音訊編碼器會少輸出
+    # 最後一格（實測 16kHz AAC 少 64ms）。多出來的部分由 -shortest 收掉。
+    assert command[command.index("-t") + 1] == "62.458000"
+    # -t 是輸出選項，必須排在輸出檔之前
+    assert command.index("-t") < len(command) - 1
+    # -shortest 仍然保留，擋住音訊比宣稱長度更早結束的情況
+    assert "-shortest" in command
+
+
+def test_missing_duration_falls_back_to_shortest():
+    """探測不到長度時退回 -shortest，不能塞一個空的 -t。"""
+    command = build_render_command(make_spec())
+
+    assert make_spec().duration is None
+    assert "-t" not in command
+    assert "-shortest" in command

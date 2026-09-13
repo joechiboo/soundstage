@@ -35,6 +35,9 @@ class RenderSpec(BaseModel):
     fps: int = Field(default=30, gt=0)
     audio_bitrate: str = "192k"
     visual: VisualStyle = VisualStyle.STATIC
+    # 音訊長度（秒），由 probe.probe_audio_duration() 探測後填入。
+    # None 代表探測不到，指令組裝時會退回只用 -shortest 收尾。
+    duration: float | None = Field(default=None, gt=0)
 
     @field_validator("width", "height")
     @classmethod

@@ -1,6 +1,7 @@
 """OAuth token 快取與重新授權流程。"""
 
 import json
+import sys
 
 import pytest
 
@@ -36,7 +37,18 @@ def test_client_secret_default(tmp_path, monkeypatch):
     assert auth.client_secret_path(tmp_path) == tmp_path / "client_secret.json"
 
 
+@pytest.mark.xfail(
+    sys.platform == "win32",
+    reason="Windows 不實作 POSIX 權限位元，chmod(0o600) 是無效操作（見 TODO.md D）",
+    strict=True,
+)
 def test_save_credentials_is_private(tmp_path):
+    """token 檔不該讓其他使用者讀得到。
+
+    Windows 上這個保證目前不成立：os.chmod 只認唯讀旗標，權限位元原封不動，
+    實測落地是 0o666。實務上靠 %USERPROFILE% 自己的 ACL 擋住其他一般使用者，
+    但那是繼承來的，不是這段程式做的事——真正的修法要走 icacls。
+    """
     path = auth.save_credentials(FakeCredentials(), tmp_path)
     assert path.is_file()
     assert path.stat().st_mode & 0o077 == 0  # 其他人不可讀

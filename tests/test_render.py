@@ -92,3 +92,63 @@ def test_render_end_to_end(tmp_path):
     )
     streams = set(probe.stdout.split())
     assert streams == {"video", "audio"}
+
+
+def test_config_error_precedes_ffmpeg_check(tmp_path, monkeypatch):
+    """參數驗證不該需要先裝好 ffmpeg。
+
+    順序反過來的話有兩個後果：解析度打錯的人會先被叫去裝 ffmpeg、裝完才
+    發現真正的問題；而這類測試會隨執行環境有沒有 ffmpeg 而飄。這裡強制
+    模擬「沒有 ffmpeg」來把順序釘死。
+    """
+    monkeypatch.setattr(shutil, "which", lambda _: None)
+
+    audio = tmp_path / "song.wav"
+    audio.write_bytes(b"fake")
+
+    with pytest.raises(RenderConfigError, match="偶數"):
+        render(audio, tmp_path / "out.mp4", width=1921, height=1080)
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="需要 ffmpeg")
+def test_output_video_not_longer_than_audio(tmp_path):
+    """輸出的影像軌不該比音訊長。
+
+    封面是 -loop 1 的無限長串流，光靠 -shortest 收尾會多出 2 秒左右，
+    且 ffmpeg 照樣回報成功——屬於靜默的錯誤輸出，所以用實際輸出驗。
+    """
+    audio = tmp_path / "tone.wav"
+    subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error",
+         "-f", "lavfi", "-i", "sine=frequency=440:duration=3", str(audio)],
+        check=True,
+    )
+
+    out = render(audio, tmp_path / "tone.mp4", width=320, height=240, fps=10)
+
+    def stream_duration(select: str) -> float:
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", select,
+             "-show_entries", "stream=duration", "-of", "default=nw=1:nk=1", str(out)],
+            capture_output=True, text=True, check=True,
+        )
+        return float(probe.stdout.strip())
+
+    video, audio_out = stream_duration("v:0"), stream_duration("a:0")
+    # 允許不到一格（1/10 秒）的誤差，但不容許秒級的尾巴
+    assert video - audio_out < 0.1, f"影像軌比音訊長 {video - audio_out:.3f} 秒"
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="需要 ffmpeg")
+def test_probe_returns_none_without_audio_stream(tmp_path):
+    """沒有音訊軌時探測要回 None，不能拋錯或給出容器長度。"""
+    from soundstage.render.probe import probe_audio_duration
+
+    image = tmp_path / "still.png"
+    subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error",
+         "-f", "lavfi", "-i", "color=c=red:s=64x64", "-frames:v", "1", str(image)],
+        check=True,
+    )
+
+    assert probe_audio_duration(image) is None
