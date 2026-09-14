@@ -31,13 +31,17 @@ Python 收到的是真正的換行。做字串比對時錨點請避開含跳脫�
 
 **目前唯一擋住「render + 上傳」全流程的東西。**
 
-`~/.config/soundstage/` 還是不存在，OAuth 從來沒實際跑過一次。
-測試裡的 OAuth 與 YouTube API 全是假 client（這是對的，測試不該碰網路），
-但也代表以下路徑一次都沒被真實執行過：
+**2026-09-14 進度**：OAuth 授權本身已經實跑成功一次。專案 `YoutubeUploader`
+建好、範圍與測試使用者設定完成、`soundstage auth` 跑通，`token.json` 拿到了
+正確的 scope 與 refresh token。
 
-- `soundstage auth` 開瀏覽器、拿 token、寫進 `token.json`
+測試裡的 OAuth 與 YouTube API 仍全是假 client（這是對的，測試不該碰網路），
+以下路徑**還是一次都沒被真實執行過**：
+
+- ~~`soundstage auth` 開瀏覽器、拿 token、寫進 `token.json`~~ ✅ 已驗證
 - token 過期後用 refresh token 自動更新
-- 授權被撤銷時自動重跑授權流程
+- 測試模式 7 天期限到了自動重跑授權流程
+- **實際上傳一支影片**（整個 resumable upload 流程）
 - resumable upload 遇到 5xx / 斷線的退避重試
 - 上傳後套用 `meta.thumbnail` 縮圖
 - 配額用盡的 403 `quotaExceeded` 處理

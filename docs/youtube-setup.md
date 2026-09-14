@@ -98,8 +98,9 @@ CLI 工具來說，等於要為此架一個網站。
 
 **代價 vs 好處**：留在「測試」的唯一缺點是 refresh token **7 天後失效**。實際影響是：
 
-> 想上傳時，如果距離上次授權超過 7 天，先跑一次 `uv run soundstage auth`
-> （約 20 秒，點兩下瀏覽器），然後照常上傳。
+> 想上傳時照常下 `upload` 指令即可。如果距離上次授權超過 7 天，程式會自動
+> 開瀏覽器請你重新授權（點兩下，約 20 秒），然後接續完成上傳——不需要中斷
+> 後重跑。細節見 [oauth-operations.md](oauth-operations.md)。
 
 一年傳幾支的話，這比去架網站、寫隱私權政策、驗證網域划算太多。
 
@@ -176,7 +177,11 @@ uv run soundstage publish "菊次郎の夏 Part I.aac" --meta meta.yaml --visual
 ```
 
 token 過期會自動用 refresh token 更新，不用再登入。
-授權被撤銷（改密碼、手動移除授權）時會自動重跑一次授權流程。
+授權被撤銷（改密碼、手動移除授權）或測試模式的 7 天期限到了，會自動重跑一次
+授權流程。
+
+📄 **設定完成後的日常維運**（token 壽命、重新授權、測試使用者管理）見
+[oauth-operations.md](oauth-operations.md)。
 
 ---
 

@@ -83,6 +83,7 @@ uv sync --extra upload
 ### 一次性設定：Google OAuth 憑證
 
 **完整步驟（含檢查點與疑難排解）見 [docs/youtube-setup.md](docs/youtube-setup.md)。**
+設定完成後的日常維運見 [docs/oauth-operations.md](docs/oauth-operations.md)。
 
 摘要：
 
