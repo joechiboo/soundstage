@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: pytest (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 最低支援版本
+          - os: ubuntu-latest
+            python-version: "3.11"
+          - os: ubuntu-latest
+            python-version: "3.13"
+          # Windows 要跑，因為已經踩過兩個只在 Windows 出現的問題：
+          # chmod(0o600) 無效、主控台 cp950 編碼。
+          - os: windows-latest
+            python-version: "3.13"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ffmpeg 不只是選用相依：裝了之後 tests/ 裡用 skipif 擋住的整合測試
+      # 才會真的跑到（實際產出 mp4 再用 ffprobe 驗長度、抽格驗畫面）。
+      - name: Install ffmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg -y --no-progress
+
+      - name: Show ffmpeg version
+        run: ffmpeg -version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # --extra upload 才會裝 google-auth 那組，OAuth 相關測試才不會被 skip
+      - name: Install dependencies
+        run: uv sync --extra upload --python ${{ matrix.python-version }}
+
+      - name: Run tests
+        run: uv run pytest -q

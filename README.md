@@ -1,5 +1,7 @@
 # soundstage
 
+[![CI](https://github.com/joechiboo/soundstage/actions/workflows/ci.yml/badge.svg)](https://github.com/joechiboo/soundstage/actions/workflows/ci.yml)
+
 把錄音做成影片、上傳到 YouTube 的 CLI 工具。
 
 起因是想把鋼琴練習錄音放上 YouTube，但每次都要手動開剪輯軟體、貼封面、輸出、
@@ -214,6 +216,11 @@ argv 與 request body。只跑 `uv sync`（沒有 extra）時 render 一切正�
 upload 會提示缺少套件。
 
 需要真的跑 ffmpeg 的整合測試會用 `skipif` 擋掉，所以沒裝 ffmpeg 也能跑完測試。
+
+CI（[.github/workflows/ci.yml](.github/workflows/ci.yml)）跑 Ubuntu × Python
+3.11／3.13 與 Windows × 3.13，三組都裝 ffmpeg，所以那些整合測試在 CI 上會真的
+執行。跑 Windows 是刻意的——這個專案已經踩過兩個只在 Windows 出現的問題
+（`chmod(0o600)` 無效、主控台 cp950 編碼），本機單平台驗不到。
 
 ### 專案結構
 
