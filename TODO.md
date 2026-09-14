@@ -38,13 +38,20 @@ Python 收到的是真正的換行。做字串比對時錨點請避開含跳脫�
 測試裡的 OAuth 與 YouTube API 仍全是假 client（這是對的，測試不該碰網路），
 以下路徑**還是一次都沒被真實執行過**：
 
-- ~~`soundstage auth` 開瀏覽器、拿 token、寫進 `token.json`~~ ✅ 已驗證
-- token 過期後用 refresh token 自動更新
-- 測試模式 7 天期限到了自動重跑授權流程
-- **實際上傳一支影片**（整個 resumable upload 流程）
-- resumable upload 遇到 5xx / 斷線的退避重試
-- 上傳後套用 `meta.thumbnail` 縮圖
+- ~~`soundstage auth` 開瀏覽器、拿 token、寫進 `token.json`~~ ✅
+- ~~實際上傳一支影片（resumable upload + metadata）~~ ✅
+  2026-09-14 傳出第一支：`https://youtu.be/bbVbvxobK-s`，1.03 MB / 7 秒 / private
+- token 過期後用 refresh token 自動更新（要等超過 1 小時才驗得到）
+- 測試模式 7 天期限到了自動重跑授權流程（2026-09-21 之後才驗得到）
+- resumable upload 遇到 5xx / 斷線的退避重試（難以自然觸發）
+- 上傳後套用 `meta.thumbnail` 縮圖（meta.yaml 目前沒設 thumbnail，沒走到）
 - 配額用盡的 403 `quotaExceeded` 處理
+- **影片能不能真的改成 public**——未通過 API 稽核的專案可能被鎖在 private。
+  第一支本來就設 private，所以還沒驗到；要在 Studio 手動改成 unlisted 試試看
+
+⚠️ 回查驗證做不到：我們只申請 `youtube.upload` 範圍，沒有讀取權，
+`videos.list` 會回 403 `insufficientPermissions`。這是對的（最小權限），
+要確認上傳結果只能去 YouTube Studio 看。
 
 **第一次實跑前要做的事**：完整步驟見 [docs/youtube-setup.md](docs/youtube-setup.md)。
 只有帳號擁有者能做，全部在瀏覽器裡。重點是別漏掉「把自己加進測試使用者」
