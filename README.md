@@ -82,11 +82,17 @@ uv sync --extra upload
 
 ### 一次性設定：Google OAuth 憑證
 
+**完整步驟（含檢查點與疑難排解）見 [docs/youtube-setup.md](docs/youtube-setup.md)。**
+
+摘要：
+
 1. 到 [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
    建立（或選擇）一個專案
 2. 啟用 **YouTube Data API v3**
-3. 建立憑證 → OAuth 用戶端 ID → 應用程式類型選 **桌面應用程式**
-4. 下載 JSON，存成 `~/.config/soundstage/client_secret.json`
+3. 設定 OAuth 同意畫面，加入 `youtube.upload` 範圍，**把自己加進測試使用者**，
+   並把發布狀態改成**正式版**（停在「測試中」的話 refresh token 只活 7 天）
+4. 建立憑證 → OAuth 用戶端 ID → 應用程式類型選 **桌面應用程式**
+5. 下載 JSON，存成 `~/.config/soundstage/client_secret.json`
    （或設 `SOUNDSTAGE_CLIENT_SECRET` 環境變數指向任意路徑）
 
 接著跑一次授權，瀏覽器登入後 token 會快取到

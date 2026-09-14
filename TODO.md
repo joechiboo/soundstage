@@ -42,12 +42,9 @@ Python 收到的是真正的換行。做字串比對時錨點請避開含跳脫�
 - 上傳後套用 `meta.thumbnail` 縮圖
 - 配額用盡的 403 `quotaExceeded` 處理
 
-**第一次實跑前要做的事**（只有帳號擁有者能做，都在瀏覽器裡）：
-
-1. Google Cloud Console 建專案、啟用 YouTube Data API v3
-2. 建 OAuth 用戶端 ID（桌面應用程式），下載 JSON
-3. 存成 `~/.config/soundstage/client_secret.json`
-4. `uv run soundstage auth`
+**第一次實跑前要做的事**：完整步驟見 [docs/youtube-setup.md](docs/youtube-setup.md)。
+只有帳號擁有者能做，全部在瀏覽器裡。重點是別漏掉「把自己加進測試使用者」
+和「發布狀態改成正式版」這兩步——後者不做的話 refresh token 只活 7 天。
 
 ⚠️ 第一次實測請用 `privacy: private`，別直接 public。
 ⚠️ 每日配額 10,000 點，一支影片約 1,600 點 → 一天約 6 支，測試時省著用。
