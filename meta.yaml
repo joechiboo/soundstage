@@ -1,0 +1,35 @@
+# 《菊次郎の夏》Part I — 上傳用 metadata
+# 用法：uv run soundstage upload 菊次郎の夏_partI.mp4 --meta meta.yaml
+#
+# 這是草稿，裡面有幾處我不知道的事情已標 TODO，請你自己補或刪掉。
+
+title: 菊次郎の夏 (Summer) — 久石讓 ｜ 鋼琴演奏 Part I
+
+description: |
+  久石讓《菊次郎の夏》主題曲 Summer，鋼琴演奏 Part I。
+
+  電影《菊次郎の夏》(1999) 配樂，北野武導演。
+
+  ——
+  錄音日期：2026-09-14
+  # TODO: 下面這些你自己決定要不要寫
+  # 樂器：
+  # 錄音方式：手機錄音
+  # 練習時間：
+
+tags:
+  - 菊次郎の夏
+  - Summer
+  - 久石讓
+  - Joe Hisaishi
+  - 鋼琴
+  - piano
+  - 鋼琴演奏
+  - piano cover
+  - 久石譲
+
+privacy: private # 先 private，確認沒問題再改 unlisted / public
+
+category_id: "10" # Music
+
+# thumbnail: cover.jpg  # 有封面圖後解除註解，相對路徑以本檔所在目錄為準

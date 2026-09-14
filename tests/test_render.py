@@ -152,3 +152,31 @@ def test_probe_returns_none_without_audio_stream(tmp_path):
     )
 
     assert probe_audio_duration(image) is None
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="需要 ffmpeg")
+def test_waveform_render_end_to_end(tmp_path):
+    """波形樣式要真的產得出帶影像與音訊的 mp4。
+
+    filter_complex 比靜態封面複雜得多（blend 的色彩空間、showwavespic 只吐
+    一格要 loop、播放頭是第三路輸入），純函式測試驗不到這些會不會實際跑通。
+    """
+    from soundstage.render import VisualStyle
+
+    audio = tmp_path / "tone.wav"
+    subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error",
+         "-f", "lavfi", "-i", "sine=frequency=440:duration=2", str(audio)],
+        check=True,
+    )
+
+    out = render(audio, tmp_path / "wave.mp4", width=320, height=240, fps=10,
+                 visual=VisualStyle.WAVEFORM)
+
+    assert out.is_file() and out.stat().st_size > 0
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "stream=codec_type",
+         "-of", "csv=p=0", str(out)],
+        capture_output=True, text=True, check=True,
+    )
+    assert set(probe.stdout.split()) == {"video", "audio"}

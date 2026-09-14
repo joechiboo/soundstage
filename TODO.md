@@ -111,12 +111,15 @@ README 也這樣宣稱，但 **Windows 不實作 POSIX 權限位元**，`path.ch
 
 ## F. Roadmap（README 既有項目）
 
-- [ ] render：波形視覺化（ffmpeg `showwaves`）
+- [x] render：波形視覺化 — 見下方「已完成」
 - [ ] render：頻譜視覺化（ffmpeg `showspectrum`）
 
 擴充點在 `render/ffmpeg.py` 的 `_COMMAND_BUILDERS`，註冊新的指令組裝函式即可。
 
-**做這兩項時會踩到的坑**：手機錄的直式影片帶有 `rotation=-90` 的顯示矩陣
+⚠️ 頻譜視覺化要注意：目前這份 16 kHz 的錄音 5 kHz 以上是空的，頻譜圖會把
+那片死區直接畫給觀眾看，等於公開展示錄音品質不足。重錄之前別做這個。
+
+**做頻譜時會踩到的坑**：手機錄的直式影片帶有 `rotation=-90` 的顯示矩陣
 （實測檔案就是，ffprobe 報 1920×1080 但解碼出來是 1080×1920 直式）。
 目前靜態封面路徑整路忽略輸入的影像軌，所以不受影響；
 但若之後做「波形疊在原片畫面上」這類功能，就必須處理旋轉。
@@ -124,6 +127,28 @@ README 也這樣宣稱，但 **Windows 不實作 POSIX 權限位元**，`path.ch
 ---
 
 ## 已完成
+
+### F（部分）波形視覺化 ✅ 2026-09-14
+
+`VisualStyle.WAVEFORM`，CLI 走 `--visual waveform`（`render` 與 `publish` 都吃）。
+
+刻意用 `showwavespic`（整首一張靜態波形 + 移動播放頭）而不是 `showwaves`
+（示波器）：`showwaves` 每格只畫 1/fps 秒的音訊，16 kHz 在 30fps 下只有 533 個
+取樣要鋪滿 1920 像素，畫面填不滿；而且每格只看得到 33 毫秒，讀不出樂曲結構。
+
+**兩個踩了很久的坑，都已經寫成測試釘住：**
+
+1. **`blend` 一定要在 RGB 平面上做。** 走預設的 YUV 時，`screen` 會被套到色度
+   平面上，整個畫面變成洋紅色——而 ffmpeg 完全不報錯，輸出照樣「成功」。
+   兩路輸入進 `blend` 前都要 `format=gbrp`。
+
+2. **播放頭只能用 `overlay`，不能用 `drawbox`。** `drawbox` 的運算式裡 `t` 是
+   「線寬」不是時間，`n` 根本沒定義。拿 `t` 當時間會算出畫面外的座標，box 就
+   無聲無息地消失，同樣不報錯。`overlay` 才有 `t` / `n` 時間變數，所以播放頭
+   是一路獨立的 `lavfi` 白色長條輸入。
+
+順帶一提，`showwavespic` 的底色是黑的，`screen` 混合時黑色不改變背景，等於
+免費去背，不需要 colorkey。
 
 ### A. `-shortest` 溢出 ✅ 2026-09-14
 

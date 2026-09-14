@@ -13,6 +13,7 @@ import typer
 
 from soundstage.errors import SoundstageError
 from soundstage.meta import Privacy, VideoMeta, load_meta
+from soundstage.render import VisualStyle
 from soundstage.render import render as render_video
 from soundstage.upload import (
     DEFAULT_CONFIG_DIR,
@@ -58,6 +59,7 @@ def _do_render(
     height: int,
     fps: int,
     verbose: bool,
+    visual: VisualStyle = VisualStyle.STATIC,
 ) -> Path:
     out = output if output is not None else audio.with_suffix(".mp4")
     result = render_video(
@@ -67,6 +69,7 @@ def _do_render(
         width=width,
         height=height,
         fps=fps,
+        visual=visual,
         on_command=_print_command if verbose else None,
     )
     typer.secho(f"已輸出影片：{result}", fg=typer.colors.GREEN)
@@ -101,6 +104,7 @@ WidthOpt = Annotated[int, typer.Option("--width", help="影片寬度")]
 HeightOpt = Annotated[int, typer.Option("--height", help="影片高度")]
 FpsOpt = Annotated[int, typer.Option("--fps", help="影片 fps")]
 VerboseOpt = Annotated[bool, typer.Option("--verbose", "-v", help="顯示實際執行的 ffmpeg 指令")]
+VisualOpt = Annotated[VisualStyle, typer.Option("--visual", help="視覺化樣式：static 靜態封面 / waveform 波形")]
 MetaOpt = Annotated[Path, typer.Option("--meta", help="metadata 設定檔（yaml / json）")]
 PrivacyOpt = Annotated[
     Optional[Privacy],
@@ -123,11 +127,12 @@ def render(
     width: WidthOpt = 1920,
     height: HeightOpt = 1080,
     fps: FpsOpt = 30,
+    visual: VisualOpt = VisualStyle.STATIC,
     verbose: VerboseOpt = False,
 ) -> None:
     """把音檔 + 封面圖合成 mp4。"""
     try:
-        _do_render(audio, cover, output, width, height, fps, verbose)
+        _do_render(audio, cover, output, width, height, fps, verbose, visual)
     except SoundstageError as exc:
         raise _fail(exc) from exc
 
@@ -158,6 +163,7 @@ def publish(
     width: WidthOpt = 1920,
     height: HeightOpt = 1080,
     fps: FpsOpt = 30,
+    visual: VisualOpt = VisualStyle.STATIC,
     verbose: VerboseOpt = False,
     config_dir: ConfigDirOpt = DEFAULT_CONFIG_DIR,
     no_browser: NoBrowserOpt = False,
@@ -165,7 +171,7 @@ def publish(
     """render + upload 一次做完。"""
     try:
         video_meta = load_meta(meta)  # 先驗證 metadata，避免 render 完才發現設定檔壞掉
-        video_path = _do_render(audio, cover, output, width, height, fps, verbose)
+        video_path = _do_render(audio, cover, output, width, height, fps, verbose, visual)
         _do_upload(video_path, video_meta, privacy, config_dir, not no_browser)
     except SoundstageError as exc:
         raise _fail(exc) from exc

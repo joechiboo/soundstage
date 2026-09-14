@@ -93,3 +93,57 @@ def test_missing_duration_falls_back_to_shortest():
     assert make_spec().duration is None
     assert "-t" not in command
     assert "-shortest" in command
+
+
+def _filter_complex(command: list[str]) -> str:
+    return command[command.index("-filter_complex") + 1]
+
+
+def test_waveform_maps_filter_output_and_source_audio():
+    command = build_render_command(make_spec(visual=VisualStyle.WAVEFORM, duration=62.208))
+
+    maps = [command[i + 1] for i, arg in enumerate(command) if arg == "-map"]
+    assert maps == ["[v]", "1:a:0"]
+    assert "showwavespic" in _filter_complex(command)
+
+
+def test_waveform_blends_in_rgb_not_yuv():
+    """blend 前必須轉成 RGB 平面。
+
+    走預設的 YUV 的話，screen 混合會被套到色度平面上，整個畫面會變成洋紅色
+    ——而 ffmpeg 不會有任何警告，輸出照樣成功。
+    """
+    fc = _filter_complex(build_render_command(make_spec(visual=VisualStyle.WAVEFORM)))
+
+    blend_idx = fc.index("blend=")
+    # 兩路輸入在進 blend 之前都要先 format=gbrp
+    assert fc.count("format=gbrp", 0, blend_idx) >= 2
+    assert "blend=all_mode=screen" in fc
+
+
+def test_waveform_playhead_uses_overlay_not_drawbox():
+    """播放頭必須用 overlay 做，不能用 drawbox。
+
+    drawbox 的運算式裡 t 代表「線寬」而不是時間，也沒有 n 這個變數；拿 t
+    當時間會算出畫面外的座標，box 就無聲無息地消失，ffmpeg 同樣不報錯。
+    """
+    command = build_render_command(make_spec(visual=VisualStyle.WAVEFORM, duration=62.208))
+    fc = _filter_complex(command)
+
+    assert "drawbox" not in fc
+    assert "overlay=x=" in fc
+    assert "62.208000" in fc  # 播放頭的位置要除以實際長度
+    # 播放頭本身是另一路 lavfi 輸入
+    inputs = [command[i + 1] for i, arg in enumerate(command) if arg == "-i"]
+    assert any(src.startswith("color=c=white") for src in inputs)
+
+
+def test_waveform_without_duration_drops_playhead():
+    """探測不到長度就畫不出播放頭該在哪，只保留波形而不是亂畫一條。"""
+    command = build_render_command(make_spec(visual=VisualStyle.WAVEFORM))
+    fc = _filter_complex(command)
+
+    assert "showwavespic" in fc
+    assert "overlay=x=" not in fc
+    inputs = [command[i + 1] for i, arg in enumerate(command) if arg == "-i"]
+    assert not any(src.startswith("color=c=white") for src in inputs)

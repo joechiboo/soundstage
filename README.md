@@ -41,11 +41,18 @@ uv run soundstage render input.wav
 # 輸入也可以是影片檔（例如手機錄的演奏影片），只取其中的音訊軌
 uv run soundstage render recording.mp4 --cover cover.jpg -o out.mp4
 
+# 波形視覺化：整首的波形圖 + 隨音樂移動的播放頭
+uv run soundstage render input.wav --visual waveform --cover cover.jpg -o out.mp4
+
 # 除錯時看實際執行的 ffmpeg 指令
 uv run soundstage render input.wav -v
 ```
 
-其他選項：`--width` / `--height`（預設 1920×1080）、`--fps`（預設 30）。
+其他選項：`--width` / `--height`（預設 1920×1080）、`--fps`（預設 30）、
+`--visual`（`static` 靜態封面，預設／`waveform` 波形）。`publish` 也吃 `--visual`。
+
+`waveform` 會把封面當背景，在下三分之一疊上整首的波形圖，加一條隨音樂移動的
+播放頭，中央留給封面本身的標題。
 解析度必須是偶數，這是 H.264 的限制。
 
 輸入可以是任何 ffmpeg 讀得懂的音訊或影片檔。影像一律取自封面圖，
@@ -161,5 +168,5 @@ src/soundstage/
 
 - [x] render：靜態封面
 - [x] upload：YouTube Data API v3 + OAuth 2.0
-- [ ] render：波形視覺化（ffmpeg `showwaves`）
+- [x] render：波形視覺化（ffmpeg `showwavespic` + 播放頭）
 - [ ] render：頻譜視覺化（ffmpeg `showspectrum`）

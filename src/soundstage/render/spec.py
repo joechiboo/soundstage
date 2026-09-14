@@ -16,7 +16,7 @@ class VisualStyle(str, Enum):
     """
 
     STATIC = "static"
-    # TODO: WAVEFORM = "waveform"   # ffmpeg showwaves filter
+    WAVEFORM = "waveform"
     # TODO: SPECTRUM = "spectrum"   # ffmpeg showspectrum filter
 
 
