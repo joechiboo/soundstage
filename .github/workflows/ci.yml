@@ -28,7 +28,7 @@ jobs:
             python-version: "3.13"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # ffmpeg 不只是選用相依：裝了之後 tests/ 裡用 skipif 擋住的整合測試
       # 才會真的跑到（實際產出 mp4 再用 ffprobe 驗長度、抽格驗畫面）。
@@ -46,7 +46,7 @@ jobs:
         run: ffmpeg -version
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v10
         with:
           enable-cache: true
 
